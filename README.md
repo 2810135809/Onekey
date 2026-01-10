@@ -27,26 +27,6 @@ Onekey Steam Depot Manifest Downloader
 去 Releases 处下载最新的发布，并且安装好 SteamTools 或者 GreenLuma  
 然后打开 Onekey 输入 App ID 即可使用
 
-## 开发
-
-本程序使用 Python 编程语言开发  
-要求环境:  
-1.Python 3.10 及以上  
-2.Windows 10 及以上  
-3.使用 Git 进行版本管理
-
-1.克隆项目到本地
-
-```
-git clone https://github.com/ikunshare/Onekey
-```
-
-2.安装依赖
-
-```
-pip install -r requirements.txt
-```
-
 ## Star 趋势图
 
 [![Stargazers over time](https://starchart.cc/ikunshare/Onekey.svg)](https://starchart.cc/ikunshare/Onekey)
@@ -56,15 +36,10 @@ pip install -r requirements.txt
  <a href="https://github.com/ikunshare/Onekey/graphs/contributors">
    <img src="https://contrib.rocks/image?repo=ikunshare/Onekey" />
  </a>
-
-## 常见问题解答（FAQ）
-
-查看 [FAQ](https://ikunshare.top/d/49) 获取常见问题的解答。
-
+ 
 ## 社区和支持
 
 加入我们的社区，参与讨论和支持:
 
-- [GitHub Discussions](https://github.com/ikunshare/Onekey/discussions)
 - [Telegram](https://t.me/ikunshare_qun)
-- [QQ](https://qm.qq.com/q/NPRVbglteK)
+- [QQ](https://qm.qq.com/q/d97QO8XheM)
