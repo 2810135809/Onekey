@@ -1,9 +1,7 @@
 """日志模块"""
 
-import logging
-import colorama
-import logzero
-from logzero import setup_logger, LogFormatter
+import sys
+from loguru import logger
 
 from .constants import LOG_DIR
 
@@ -15,53 +13,51 @@ class Logger:
         self.name = name
         self.debug_mode = debug_mode
         self.log_file = log_file
-        self._logger = self._setup_logger()
+        self._setup_logger()
+        self._logger = logger.bind(name=name)
 
-    def _setup_logger(self) -> logging.Logger:
+    def _setup_logger(self):
         """设置日志器"""
-        level = logzero.DEBUG if self.debug_mode else logzero.INFO
+        # 移除默认的 handler
+        logger.remove()
 
-        colors = {
-            logzero.DEBUG: colorama.Fore.CYAN,
-            logzero.INFO: colorama.Fore.GREEN,
-            logzero.WARNING: colorama.Fore.YELLOW,
-            logzero.ERROR: colorama.Fore.RED,
-            logzero.CRITICAL: colorama.Fore.MAGENTA,
-        }
+        level = "DEBUG" if self.debug_mode else "INFO"
 
-        terminal_formatter = LogFormatter(
-            color=True,
-            fmt="%(color)s%(message)s%(end_color)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-            colors=colors,
+        # 控制台输出
+        logger.add(
+            sys.stderr, format="<level>{message}</level>", level=level, colorize=True
         )
-
-        logger = setup_logger(self.name, level=level, formatter=terminal_formatter)
 
         if self.log_file:
             LOG_DIR.mkdir(exist_ok=True)
             logfile = LOG_DIR / f"{self.name}.log"
-            file_handler = logging.FileHandler(logfile, encoding="utf-8")
-            file_formatter = logging.Formatter(
-                "[%(asctime)s] | [%(name)s:%(levelname)s] | [%(module)s.%(funcName)s:%(lineno)d] - %(message)s",
-                datefmt="%Y-%m-%d %H:%M:%S",
-            )
-            file_handler.setFormatter(file_formatter)
-            logger.addHandler(file_handler)
 
-        return logger
+            # 文件输出
+            file_format = (
+                "[{time:YYYY-MM-DD HH:mm:ss}] | "
+                "[{extra[name]}:{level}] | "
+                "[{module}.{function}:{line}] - {message}"
+            )
+
+            logger.add(
+                logfile,
+                format=file_format,
+                level=level,
+                encoding="utf-8",
+                filter=lambda record: record["extra"].get("name") == self.name,
+            )
 
     def debug(self, msg: str):
-        self._logger.debug(msg)
+        self._logger.opt(depth=1).debug(msg)
 
     def info(self, msg: str):
-        self._logger.info(msg)
+        self._logger.opt(depth=1).info(msg)
 
     def warning(self, msg: str):
-        self._logger.warning(msg)
+        self._logger.opt(depth=1).warning(msg)
 
     def error(self, msg: str):
-        self._logger.error(msg)
+        self._logger.opt(depth=1).error(msg)
 
     def critical(self, msg: str):
-        self._logger.critical(msg)
+        self._logger.opt(depth=1).critical(msg)

@@ -1,8 +1,7 @@
 import os
 import sys
-import time
 import threading
-import webbrowser
+import webview
 
 from pathlib import Path
 from PIL import Image
@@ -13,6 +12,12 @@ from src.utils.i18n import t
 project_root = Path(__file__)
 config_manager = ConfigManager()
 sys.path.insert(0, str(project_root))
+window = webview.create_window(
+    title="Onekey",
+    url=f"http://localhost:{config_manager.app_config.port}",
+    width=1600,
+    height=900,
+)
 
 
 def hide_console() -> None:
@@ -33,7 +38,7 @@ def hide_console() -> None:
 def create_icon() -> Image.Image:
     """创建托盘图标"""
     try:
-        return Image.open("./icon.jpg")
+        return Image.open(project_root.parent / "icon.jpg")
     except Exception as e:
         if config_manager.app_config.show_console:
             print(t("error.load_icon", error=str(e)))
@@ -50,11 +55,8 @@ def create_system_tray() -> bool:
             icon.stop()
             os._exit(0)
 
-        def on_open_browser(icon, item):
-            try:
-                webbrowser.open(f"http://localhost:{config_manager.app_config.port}")
-            except Exception:
-                pass
+        def on_show_window(icon, item):
+            window.show()
 
         def on_show_console(icon, item):
             try:
@@ -70,7 +72,7 @@ def create_system_tray() -> bool:
 
         # 创建托盘菜单
         menu = pystray.Menu(
-            pystray.MenuItem(t("tray.open_browser"), on_open_browser),
+            pystray.MenuItem(t("tray.show_window"), on_show_window),
             pystray.MenuItem(t("tray.show_console"), on_show_console),
             pystray.MenuItem(t("tray.exit"), on_quit),
         )
@@ -89,18 +91,6 @@ def create_system_tray() -> bool:
         return True
     except ImportError:
         return False
-
-
-def open_browser_delayed(port: int) -> None:
-    """延迟打开浏览器"""
-    time.sleep(2)
-    try:
-        webbrowser.open(f"http://localhost:{port}")
-        if config_manager.app_config.show_console:
-            print(t("main.browser_opened", port=port))
-    except Exception:
-        if config_manager.app_config.show_console:
-            print(t("main.browser_open_failed", port=port))
 
 
 def start_web_server() -> None:
@@ -136,16 +126,15 @@ def main() -> None:
             if tray_created:
                 print(t("main.tray_created"))
 
+        def on_closing():
+            if window.create_confirmation_dialog("Onekey", "是否关闭Onekey"):
+                os._exit(0)
+            return False
+
+        window.events.closing += on_closing
+
         # 启动浏览器
-        browser_thread = threading.Thread(
-            target=open_browser_delayed, args=(config.port,)
-        )
-        browser_thread.daemon = True
-        browser_thread.start()
-
-        # 启动Web应用
-        start_web_server()
-
+        webview.start(func=start_web_server)
     except KeyboardInterrupt:
         if config_manager.app_config.show_console:
             print(f"\n{t('main.exit')}")

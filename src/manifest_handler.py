@@ -1,7 +1,8 @@
-import vdf
+import io
+import struct
+import zipfile
 from pathlib import Path
 from typing import List, Optional
-from steam.client.cdn import DepotManifest
 from .constants import STEAM_CACHE_CDN_LIST
 from .models import ManifestInfo, SteamAppManifestInfo
 from .logger import Logger
@@ -26,32 +27,39 @@ class ManifestHandler:
                 url = cdn + manifest_info.url
                 try:
                     r = await self.client.get(url)
-                    if r.status_code == 200:
-                        return r.content
+                    if r.status == 200:
+                        return await r.content.read()
                 except Exception as e:
                     self.logger.debug(t("manifest.download.failed", url=url, error=e))
+
+    @staticmethod
+    def _serialize_manifest_data(content: bytes) -> bytes:
+        magic_signature = struct.pack("<I", 0x71F617D0)
+        payload = content
+
+        if len(content) >= 4 and content[:4] == magic_signature:
+            payload = content[8:]
+        else:
+            try:
+                with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                    payload = zf.read("z")
+            except (zipfile.BadZipFile, KeyError):
+                pass
+
+        return magic_signature + struct.pack("<I", len(payload)) + payload
 
     def process_manifest(
         self, manifest_data: bytes, manifest_info: ManifestInfo, remove_old: bool = True
     ) -> bool:
-        """处理清单文件"""
         try:
             depot_id = manifest_info.depot_id
             manifest_id = manifest_info.manifest_id
-            depot_key = bytes.fromhex(manifest_info.depot_key)
 
-            manifest = DepotManifest(manifest_data)
+            _ = bytes.fromhex(manifest_info.depot_key)
+
+            serialized_data = self._serialize_manifest_data(manifest_data)
+
             manifest_path = self.depot_cache / f"{depot_id}_{manifest_id}.manifest"
-
-            config_path = self.depot_cache / "config.vdf"
-            if config_path.exists():
-                with open(config_path, "r", encoding="utf-8") as f:
-                    d = vdf.load(f)
-            else:
-                d = {"depots": {}}
-
-            d["depots"][depot_id] = {"DecryptionKey": depot_key.hex()}
-            d = {"depots": dict(sorted(d["depots"].items()))}
 
             if remove_old:
                 for file in self.depot_cache.iterdir():
@@ -66,10 +74,7 @@ class ManifestHandler:
                             self.logger.info(t("manifest.delete_old", name=file.name))
 
             with open(manifest_path, "wb") as f:
-                f.write(manifest.serialize(compress=False))
-
-            with open(config_path, "w", encoding="utf-8") as f:
-                vdf.dump(d, f, pretty=True)
+                f.write(serialized_data)
 
             self.logger.info(
                 t(
@@ -89,11 +94,9 @@ class ManifestHandler:
     ) -> List[ManifestInfo]:
         """批量处理清单"""
         processed = []
+        all_manifests = manifests.mainapp + manifests.dlcs
 
-        app_manifest = manifests.mainapp
-        dlc_manifest = manifests.dlcs
-
-        for manifest_info in app_manifest + dlc_manifest:
+        for manifest_info in all_manifests:
             manifest_path = (
                 self.depot_cache
                 / f"{manifest_info.depot_id}_{manifest_info.manifest_id}.manifest"

@@ -1,9 +1,15 @@
+# Server
+loguru
+fastapi
+uvicorn
+# Encode
 vdf
-httpx
+ujson
+# Web
+jinja2
+aiohttp
+pywebview
+websockets
+# Any things
 Pillow
 pystray
-uvicorn
-logzero
-colorama
-fastapi[all]
-steam[client]

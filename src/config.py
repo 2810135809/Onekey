@@ -1,6 +1,6 @@
 import os
 import sys
-import json
+import ujson
 import winreg
 from pathlib import Path
 from typing import Dict, Optional
@@ -34,7 +34,7 @@ class ConfigManager:
         """生成默认配置文件"""
         try:
             with open(self.config_path, "w", encoding="utf-8") as f:
-                json.dump(DEFAULT_CONFIG, f, indent=2, ensure_ascii=False)
+                ujson.dump(DEFAULT_CONFIG, f, indent=2, ensure_ascii=False)
             print(t("config.generated"))
             os.system("pause")
             sys.exit(1)
@@ -50,7 +50,7 @@ class ConfigManager:
 
         try:
             with open(self.config_path, "r", encoding="utf-8") as f:
-                self._config_data = json.load(f)
+                self._config_data = ujson.load(f)
 
             self.app_config = AppConfig(
                 key=self._config_data.get("KEY", ""),
@@ -63,7 +63,7 @@ class ConfigManager:
             )
 
             self.steam_path = self._get_steam_path()
-        except json.JSONDecodeError:
+        except ujson.JSONDecodeError:
             print(t("config.corrupted"))
             self._generate_config()
             print(t("config.regenerated"))

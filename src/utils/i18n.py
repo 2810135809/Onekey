@@ -14,14 +14,12 @@ class I18n:
         # 中文翻译
         self.translations["zh"] = {
             # 系统托盘
-            "tray.open_browser": "打开浏览器",
+            "tray.show_window": "显示程序",
             "tray.show_console": "显示控制台",
             "tray.exit": "退出程序",
             # 主程序
             "main.starting": "正在启动Onekey...",
             "main.tray_created": "系统托盘已创建",
-            "main.browser_opened": "浏览器已自动打开",
-            "main.browser_open_failed": "无法自动打开浏览器，请手动访问: http://localhost:{port}",
             "main.exit": "程序已退出",
             "main.start_error": "启动错误: {error}",
             "main.press_enter": "按回车键退出...",
@@ -72,7 +70,6 @@ class I18n:
             "error.ensure_root": "请确保在项目根目录中运行此程序",
             # Web相关
             "web.starting": "启动Onekey Web GUI...",
-            "web.visit": "请在浏览器中访问: http://localhost:{port}",
             "web.task_running": "已有任务正在运行",
             "web.invalid_appid": "请输入有效的App ID",
             "web.invalid_format": "App ID格式无效",
@@ -104,14 +101,12 @@ class I18n:
         # 英文翻译
         self.translations["en"] = {
             # System tray
-            "tray.open_browser": "Open Browser",
+            "tray.show_window": "Show Window",
             "tray.show_console": "Show Console",
             "tray.exit": "Exit",
             # Main program
             "main.starting": "Starting Onekey...",
             "main.tray_created": "System tray created",
-            "main.browser_opened": "Browser opened automatically",
-            "main.browser_open_failed": "Failed to open browser automatically, please visit: http://localhost:{port}",
             "main.exit": "Program exited",
             "main.start_error": "Startup error: {error}",
             "main.press_enter": "Press Enter to exit...",
@@ -162,7 +157,6 @@ class I18n:
             "error.ensure_root": "Please ensure running this program from project root",
             # Web related
             "web.starting": "Starting Onekey Web GUI...",
-            "web.visit": "Please visit: http://localhost:{port}",
             "web.task_running": "A task is already running",
             "web.invalid_appid": "Please enter a valid App ID",
             "web.invalid_format": "Invalid App ID format",

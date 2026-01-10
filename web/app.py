@@ -1,8 +1,8 @@
 import os
 import sys
 import time
-import json
-import httpx
+import ujson
+import aiohttp
 import asyncio
 
 from pathlib import Path
@@ -16,14 +16,11 @@ from fastapi.templating import Jinja2Templates
 from src.constants import STEAM_API_BASE
 from src.utils.i18n import t
 
-
-# 添加项目根目录到Python路径
 project_root = Path(__file__)
 sys.path.insert(0, str(project_root))
 
 
 def get_base_path():
-    """获取程序基础路径"""
     if hasattr(sys, "_MEIPASS"):
         return Path(sys._MEIPASS)
     elif getattr(sys, "frozen", False):
@@ -44,7 +41,6 @@ except ImportError as e:
 
 
 class ConnectionManager:
-    """WebSocket 连接管理器"""
 
     def __init__(self):
         self.active_connections: List[WebSocket] = []
@@ -64,23 +60,19 @@ class ConnectionManager:
             try:
                 await connection.send_text(message)
             except BaseException:
-                # 连接可能已关闭
                 pass
 
 
 class WebOnekeyApp:
-    """Web版本的Onekey应用"""
-
     def __init__(self, manager: ConnectionManager):
         self.onekey_app = None
         self.current_task = None
-        self.task_status = "idle"  # idle, running, completed, error
+        self.task_status = "idle"
         self.task_progress = []
         self.task_result = None
         self.manager = manager
 
     def init_app(self):
-        """初始化Onekey应用"""
         try:
             self.onekey_app = OnekeyApp()
             return True
@@ -88,18 +80,14 @@ class WebOnekeyApp:
             return False, str(e)
 
     async def run_unlock_task(self, app_id: str, tool_type: str, dlc: bool):
-        """运行解锁任务"""
         try:
             self.task_status = "running"
             self.task_progress = []
 
-            # 重新初始化应用以确保新的任务状态
             self.onekey_app = OnekeyApp()
 
-            # 添加自定义日志处理器来捕获进度
             self._add_progress_handler()
 
-            # 执行解锁任务
             result = await self.onekey_app.run(app_id, tool_type, dlc)
 
             if result:
@@ -116,7 +104,6 @@ class WebOnekeyApp:
             self.task_status = "error"
             self.task_result = {"success": False, "message": f"配置失败: {str(e)}"}
         finally:
-            # 确保应用资源被清理
             if hasattr(self, "onekey_app") and self.onekey_app:
                 try:
                     if hasattr(self.onekey_app, "client"):
@@ -126,7 +113,6 @@ class WebOnekeyApp:
             self.onekey_app = None
 
     def _add_progress_handler(self):
-        """添加进度处理器"""
         if self.onekey_app and self.onekey_app.logger:
             original_info = self.onekey_app.logger.info
             original_warning = self.onekey_app.logger.warning
@@ -136,10 +122,9 @@ class WebOnekeyApp:
                 self.task_progress.append(
                     {"type": "info", "message": str(msg), "timestamp": time.time()}
                 )
-                # 广播进度消息
                 asyncio.create_task(
                     self.manager.broadcast(
-                        json.dumps(
+                        ujson.dumps(
                             {
                                 "type": "task_progress",
                                 "data": {"type": "info", "message": str(msg)},
@@ -155,7 +140,7 @@ class WebOnekeyApp:
                 )
                 asyncio.create_task(
                     self.manager.broadcast(
-                        json.dumps(
+                        ujson.dumps(
                             {
                                 "type": "task_progress",
                                 "data": {"type": "warning", "message": str(msg)},
@@ -171,7 +156,7 @@ class WebOnekeyApp:
                 )
                 asyncio.create_task(
                     self.manager.broadcast(
-                        json.dumps(
+                        ujson.dumps(
                             {
                                 "type": "task_progress",
                                 "data": {"type": "error", "message": str(msg)},
@@ -186,7 +171,6 @@ class WebOnekeyApp:
             self.onekey_app.logger.error = error_with_progress
 
 
-# 创建FastAPI应用
 app = FastAPI(title="Onekey")
 app.add_middleware(
     CORSMiddleware,
@@ -198,7 +182,6 @@ app.add_middleware(
 
 manager = ConnectionManager()
 
-# 修复：为静态文件路由添加name参数
 config = ConfigManager()
 app.mount(
     "/static",
@@ -209,7 +192,6 @@ templates = Jinja2Templates(
     directory=f"{base_path}/{config.app_config.language}/templates"
 )
 
-# 创建Web应用实例
 web_app = WebOnekeyApp(manager)
 
 
@@ -267,7 +249,6 @@ async def start_unlock(request: Request):
     if not app_id:
         return JSONResponse({"success": False, "message": "请输入有效的App ID"})
 
-    # 验证App ID格式
     app_id_list = [id for id in app_id.split("-") if id.isdigit()]
     if not app_id_list:
         return JSONResponse({"success": False, "message": "App ID格式无效"})
@@ -293,9 +274,7 @@ async def get_task_status():
     return JSONResponse(
         {
             "status": web_app.task_status,
-            "progress": (
-                web_app.task_progress[-10:] if web_app.task_progress else []
-            ),  # 只返回最近10条
+            "progress": (web_app.task_progress[-10:] if web_app.task_progress else []),
             "result": web_app.task_result,
         }
     )
@@ -319,14 +298,11 @@ async def update_config(request: Request):
     try:
         data = await request.json()
 
-        # 验证必需的字段
         if not isinstance(data, dict):
             return {"success": False, "message": "无效的配置数据"}
 
-        # 加载当前配置
         config_manager = ConfigManager()
 
-        # 准备新的配置数据
         new_config = {
             "KEY": data.get("key", ""),
             "Port": config_manager.app_config.port,
@@ -337,12 +313,11 @@ async def update_config(request: Request):
             "Language": data.get("language", "zh"),
         }
 
-        # 保存配置
-        import json
+        import ujson
 
         config_path = config_manager.config_path
         with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(new_config, f, indent=2, ensure_ascii=False)
+            ujson.dump(new_config, f, indent=2, ensure_ascii=False)
 
         return {"success": True, "message": "配置已保存"}
 
@@ -355,13 +330,13 @@ async def reset_config():
     """重置配置为默认值"""
     try:
         from src.config import DEFAULT_CONFIG
-        import json
+        import ujson
 
         config_manager = ConfigManager()
         config_path = config_manager.config_path
 
         with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(DEFAULT_CONFIG, f, indent=2, ensure_ascii=False)
+            ujson.dump(DEFAULT_CONFIG, f, indent=2, ensure_ascii=False)
 
         return {"success": True, "message": "配置已重置为默认值"}
 
@@ -402,19 +377,19 @@ async def get_key_info(request: Request):
         if not key:
             return JSONResponse({"success": False, "message": "卡密不能为空"})
 
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with aiohttp.ClientSession(conn_timeout=10.0) as client:
             response = await client.post(
-                f"{STEAM_API_BASE}/getKeyInfo",
+                url=f"{STEAM_API_BASE}/getKeyInfo",
                 json={"key": key},
                 headers={"Content-Type": "application/json"},
             )
 
-            if response.status_code == 200:
-                result = response.json()
+            if response.status == 200:
+                result = ujson.loads(await response.content.read())
                 return JSONResponse(result)
             else:
                 return JSONResponse({"success": False, "message": "卡密验证服务不可用"})
-    except httpx.TimeoutException:
+    except aiohttp.ConnectionTimeoutError:
         return JSONResponse({"success": False, "message": "验证超时，请检查网络连接"})
     except Exception as e:
         return JSONResponse({"success": False, "message": f"验证失败: {str(e)}"})
@@ -426,15 +401,15 @@ async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         await websocket.send_text(
-            json.dumps({"type": "connected", "data": {"message": "已连接到服务器"}})
+            ujson.dumps({"type": "connected", "data": {"message": "已连接到服务器"}})
         )
 
         while True:
             data = await websocket.receive_text()
-            message = json.loads(data)
+            message = ujson.loads(data)
             if message.get("type") == "ping":
                 await websocket.send_text(
-                    json.dumps({"type": "pong", "data": {"timestamp": time.time()}})
+                    ujson.dumps({"type": "pong", "data": {"timestamp": time.time()}})
                 )
     except WebSocketDisconnect:
         manager.disconnect(websocket)
@@ -445,4 +420,3 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 print(t("web.starting"))
-print(t("web.visit", port=config.app_config.port))

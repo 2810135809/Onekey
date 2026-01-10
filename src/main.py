@@ -1,4 +1,6 @@
 from typing import List, Dict, Tuple
+
+import ujson
 from .constants import STEAM_API_BASE
 from .config import ConfigManager
 from .logger import Logger
@@ -27,7 +29,7 @@ class OnekeyApp:
                 f"{STEAM_API_BASE}/getKeyInfo",
                 json={"key": self.config.app_config.key},
             )
-            body = response.json()
+            body = ujson.loads(await response.content.read())
 
             if not body["info"]:
                 self.logger.error(t("api.key_not_exist"))
@@ -61,15 +63,15 @@ class OnekeyApp:
                 headers={"X-Api-Key": self.config.app_config.key},
             )
 
-            if response.status_code == 401:
+            if response.status == 401:
                 self.logger.error(t("api.invalid_key"))
                 return SteamAppInfo(), SteamAppManifestInfo(mainapp=[], dlcs=[])
 
-            if response.status_code != 200:
-                self.logger.error(t("api.request_failed", code=response.status_code))
+            if response.status != 200:
+                self.logger.error(t("api.request_failed", code=response.status))
                 return SteamAppInfo(), SteamAppManifestInfo(mainapp=[], dlcs=[])
 
-            data = response.json()
+            data = ujson.loads(await response.content.read())
 
             if not data:
                 self.logger.error(t("api.no_manifest"))
